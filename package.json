@@ -1,15 +1,14 @@
 {
-  "name": "jai-proxy",
+  "name": "llama-barebones-webui",
   "version": "1.0.0",
   "type": "module",
-  "main": "index.js",
+  "main": "webui.js",
   "scripts": {
-    "dev": "nodemon index.js",
-    "characters": "nodemon characters.js"
+    "dev": "nodemon webui.js",
+    "jai": "nodemon jai-proxy.js"
   },
   "keywords": [],
-  "author": "",
-  "license": "ISC",
+  "author": "Zane Atega",
   "description": "",
   "devDependencies": {
     "nodemon": "^3.1.14"

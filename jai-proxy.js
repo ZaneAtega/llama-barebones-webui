@@ -1,8 +1,9 @@
 import http from "http";
-import os from "os";
 import fs from "fs/promises";
 
 import OpenAI from "openai";
+
+import { modify_prompt } from "./modify-prompt.js";
 
 let openai;
 
@@ -14,11 +15,15 @@ const corsHeaders = {
 http.createServer((req, res) => {
     if (req.method === "OPTIONS") {
         res.writeHead(204, corsHeaders);
-        res.end();
-        return;
+        return res.end();
     }
 
     const apiKey = req.headers["authorization"].split(" ")[1];
+
+    if (!apiKey) {
+        res.writeHead(403, corsHeaders);
+        return res.end();
+    }
 
     if (apiKey !== openai?.apiKey) {
         openai = new OpenAI({
@@ -33,35 +38,21 @@ http.createServer((req, res) => {
     req.on("end", async () => {
         const payload = JSON.parse(body);
 
-        let system = payload.messages[0].content; 
-        let name = system.slice(2, system.indexOf("'s Persona>"));
+        let system = payload.messages[0].content.trim();
+        let name = system.slice(1, system.indexOf("'s Persona>"));
 
-        // payload.messages[0].content = system; // you can edit the character definition directly instead of trying to prompt around it
+        system = modify_prompt(system);
+        payload.messages[0].content = system; // you can edit the character definition directly instead of trying to prompt around it
 
         name += ` (${system.length})`;
         const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
 
-        const preset = {
-            identifier: `@local:${slug}`,
-            name: name,
-            changed: true,
-            operation: {
-                fields: [{
-                    key: "llm.prediction.systemPrompt",
-                    value: system.replace(/<UserPersona>.*?<\/UserPersona>\n/s, "")
-                }]
-            },
-            load: {
-                fields: []
-            }
-        };
-
-        const path = `${os.homedir()}\\.lmstudio\\config-presets\\${slug}.preset.json`;
+        const file = new URL(`./prompts/${slug}.txt`, import.meta.url);
 
         try {
-            await fs.access(path);
+            await fs.access(file);
         } catch {
-            await fs.writeFile(path, JSON.stringify(preset, null, 2));
+            await fs.writeFile(file, system.replace(/<UserPersona>.*?<\/UserPersona>\n/s, ""));
         }
 
         let stream;
@@ -77,8 +68,7 @@ http.createServer((req, res) => {
 
                 if (e.status && e.status < 500) {
                     res.writeHead(e.status, corsHeaders);
-                    res.end();
-                    return;
+                    return res.end();
                 }
             }
         }
@@ -98,4 +88,4 @@ http.createServer((req, res) => {
         res.write("data: [DONE]\n\n");
         res.end();
     });
-}).listen(6969, "127.0.0.1");
+}).listen(6971, "127.0.0.1");

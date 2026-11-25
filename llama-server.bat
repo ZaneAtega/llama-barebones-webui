@@ -26,12 +26,13 @@ E:\llama-b10068-bin-win-cuda-12.4-x64\llama-server.exe ^
     -np 1 ^
     -nocb ^
     --no-mmproj ^
+    --host 0.0.0.0 ^
     --port 6970 ^
-    --cors-origins https://janitorai.com ^
+    --cors-origins * ^
     --cors-methods POST,OPTIONS ^
     --cors-headers Authorization,Content-Type ^
     --no-ui ^
-    --api-key foo ^
+    --api-key-file api-key.txt ^
     -to 60 ^
     --cache-prompt ^
     --cache-reuse 256 ^
