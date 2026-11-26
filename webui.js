@@ -31,7 +31,7 @@ const methodAndHeaders = {
     method: "POST",
     headers: {
         "Content-Type": "application/json",
-        "Authorization": "Bearer ${fs.readFileSync(new URL("./api-key.txt", import.meta.url), "utf8").trim()}"
+        "Authorization": "Bearer ${fs.readFileSync(new URL("./api-key.txt", import.meta.url), "utf8")}"
     }
 };
 
@@ -45,7 +45,7 @@ const send = async ta => {
     ta.value = '';
 
     const msgs = [...document.querySelectorAll('p')];
-    let i = 0;
+    let i;
 
     for (i = 0; await tokenize(msgs.slice(i).map(msg => msg.textContent).join("\\n")) > 16384; i++);
 
@@ -70,15 +70,17 @@ const send = async ta => {
             if (!line.startsWith("data: ")) continue;
             if (line === "data: [DONE]") break;
 
-            reply.textContent += JSON.parse(line.slice(6)).choices[0].delta.content || "";
+            reply.textContent += JSON.parse(line.slice(6)).choices[0].delta.content || '';
         }
     }
+
+    localStorage.setItem(location.href, document.body.innerHTML);
 };
 
 const download = () => {
-    const a = document.createElement("a");
+    const a = document.createElement('a');
     a.href = URL.createObjectURL(new Blob([document.documentElement.outerHTML], { type: "text/html" }));
-    a.download = \`\${location.href.split('/')[3]} ${Date.now()}.html\`;
+    a.download = \`\${location.href.split('/')[3]} \${Date.now()}.html\`;
     a.click();
 };
 
@@ -86,8 +88,6 @@ onload = () => {
     document.body.innerHTML = localStorage.getItem(location.href) || document.body.innerHTML;
     requestAnimationFrame(() => window.scrollTo(0, document.body.scrollHeight));
 };
-
-onbeforeunload = () => localStorage.setItem(location.href, document.body.innerHTML);
 `,
 
    _body: `<body><textarea onkeydown="if(event.key==='Enter'){event.preventDefault();send(this)}"></textarea><button onclick="download()">Download</button><button onclick="document.querySelectorAll('p').forEach(p=>p.remove())">New</button><label><input type="file" accept=".html" onchange="this.files[0].text().then(html=>{document.open();document.write(html);document.close()})" hidden>Import</label></body>`,

@@ -21,7 +21,7 @@ http.createServer((req, res) => {
     const apiKey = req.headers["authorization"].split(" ")[1];
 
     if (!apiKey) {
-        res.writeHead(403, corsHeaders);
+        res.writeHead(401, corsHeaders);
         return res.end();
     }
 
