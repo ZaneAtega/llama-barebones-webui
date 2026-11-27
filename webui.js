@@ -1,6 +1,5 @@
 import fs from "fs";
 import http from "http";
-import os from "os";
 import path from "path";
 import { fileURLToPath } from "url";
 
@@ -11,18 +10,17 @@ const DIR = path.resolve(fileURLToPath(new URL("./prompts/", import.meta.url)));
 const FILES = fs.readdirSync(DIR)
     .filter(f => f.endsWith(".txt"))
     .map(f => ({
-        name: f,
+        name: f.split(".txt")[0],
         mtime: fs.statSync(path.join(DIR, f)).mtimeMs
     }))
     .sort((a, b) => b.mtime - a.mtime)
-    .map(f => f.name)
-    .map(f => `<a href="${f.split(".txt")[0]}">${f}</a><br>`)
+    .map(f => `<a href="${f.name}">${f.name}</a><br>`)
     .join('');
 
 const OK = [200, { "Content-Type": "text/html; charset=utf-8" }];
 
 const Html = {
-   style: "<style>body{background:#000;color:#fff;font-family:ui-sans-serif,system-ui}a{text-decoration:none;color:inherit}textarea{background:black;border-color:#fff;width:100%;height:4lh;color:inherit;font-family:inherit}</style>",
+   style: "<style>body{background:#000;color:#fff;font-family:ui-sans-serif,system-ui}a{text-decoration:none;color:inherit}textarea{background:#000;border-color:#fff;width:100%;height:4lh;color:inherit;font-family:inherit}</style>",
 
    _js: `
 const endpoint = \`\${location.origin.split(':').slice(0, -1).join(':')}:6970\`;
@@ -35,14 +33,10 @@ const methodAndHeaders = {
     }
 };
 
-const tokenize = async msg => {
-    const r = await fetch(\`\${endpoint}/tokenize\`, { ...methodAndHeaders, body: JSON.stringify({ content: msg }) });
-    return (await r.json()).tokens.length;
-};
+const tokenize = msg => fetch(\`\${endpoint}/tokenize\`, { ...methodAndHeaders, body: JSON.stringify({ content:msg }) }).then(r => r.json()).then(r => r.tokens.length);
 
-const send = async ta => {
-    ta.insertAdjacentHTML("beforebegin", \`<p style="opacity:.8">\${ta.value}</p>\`);
-    ta.value = '';
+const send = async msg => {
+    chat.insertAdjacentHTML("beforeend", \`<p style="opacity:.8">\${msg}</p>\`);
 
     const msgs = [...document.querySelectorAll('p')];
     let i;
@@ -55,7 +49,7 @@ const send = async ta => {
         payload.messages.push({ role: msgs[i].style.opacity ? "user" : "assistant", content: msgs[i].textContent });
 
     const reply = document.createElement('p');
-    ta.insertAdjacentElement("beforebegin", reply);
+    chat.insertAdjacentElement("beforeend", reply);
 
     const r = await fetch(\`\${endpoint}/v1/chat/completions\`, { ...methodAndHeaders, body: JSON.stringify(payload) });
 
@@ -74,23 +68,20 @@ const send = async ta => {
         }
     }
 
-    localStorage.setItem(location.href, document.body.innerHTML);
+    localStorage.setItem(location.href, chat.innerHTML);
 };
 
-const download = () => {
-    const a = document.createElement('a');
-    a.href = URL.createObjectURL(new Blob([document.documentElement.outerHTML], { type: "text/html" }));
-    a.download = \`\${location.href.split('/')[3]} \${Date.now()}.html\`;
-    a.click();
-};
+const bottom = () => requestAnimationFrame(() => scrollTo(0, document.body.scrollHeight));
+onload = () => ((chat = document.getElementById("chat")).innerHTML = localStorage.getItem(location.href)) && bottom();`,
 
-onload = () => {
-    document.body.innerHTML = localStorage.getItem(location.href) || document.body.innerHTML;
-    requestAnimationFrame(() => window.scrollTo(0, document.body.scrollHeight));
-};
-`,
-
-   _body: `<body><textarea onkeydown="if(event.key==='Enter'){event.preventDefault();send(this)}"></textarea><button onclick="download()">Download</button><button onclick="document.querySelectorAll('p').forEach(p=>p.remove())">New</button><label><input type="file" accept=".html" onchange="this.files[0].text().then(html=>{document.open();document.write(html);document.close()})" hidden>Import</label></body>`,
+   _body: `
+<body>
+   <div id="chat" onclick="event.target.matches('p')&&confirm('Delete message?')&&event.target.remove()"></div>
+   <textarea onkeydown="event.key==='Enter'&&!event.preventDefault()&&send(this.value)&&(this.value='')"></textarea>
+   <button onclick="Object.assign(document.createElement('a'),{href:window.URL.createObjectURL(new Blob([chat.innerHTML])),download:\`\${location.href.split('/')[3]} \${Date.now()}.html\`}).click()">Download</button>
+   <button onclick="chat.innerHTML=''">New</button>
+   <input title="Import" type="file" accept=".html" onchange="this.files[0].text().then(html=>(chat.innerHTML=html)&&bottom())">
+</body>`,
 
    build_html(system) {
       return `<head><meta name="viewport" content="width=device-width, initial-scale=1.0">${this.style}<script>const template={"messages":[{"role":"system","content":${JSON.stringify(system)}}],"stream":true,"reasoning_effort":"minimal"};${this._js}</script></head>${this._body}`;
